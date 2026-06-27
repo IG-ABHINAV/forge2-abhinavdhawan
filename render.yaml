@@ -1,0 +1,51 @@
+services:
+  # MySQL Database Service
+  - type: database
+    name: pulsedesk-db
+    databaseName: pulsedesk
+    user: pulsedesk_user
+    plan: free
+
+  # Laravel 11 Backend Web Service
+  - type: web
+    name: pulsedesk-backend
+    env: php
+    plan: free
+    rootDir: backend
+    buildCommand: |
+      composer install --no-dev --optimize-autoloader
+      php artisan config:cache
+      php artisan route:cache
+      php artisan view:cache
+    startCommand: apache2-foreground-bootstrap # or appropriate container start command for php envs on Render
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        generate: true
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        fromDatabase:
+          name: pulsedesk-db
+          property: host
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_DATABASE
+        fromDatabase:
+          name: pulsedesk-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: pulsedesk-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: pulsedesk-db
+          property: password
+      - key: EASTROUTER_API_KEY
+        sync: false # to be set manually in Render dashboard
+      - key: EASTROUTER_BASE_URL
+        value: https://api.eastrouter.com/v1
