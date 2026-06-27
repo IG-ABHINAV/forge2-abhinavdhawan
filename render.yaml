@@ -1,11 +1,11 @@
-services:
+databases:
   # MySQL Database Service
-  - type: database
-    name: pulsedesk-db
+  - name: pulsedesk-db
     databaseName: pulsedesk
     user: pulsedesk_user
     plan: free
 
+services:
   # Laravel 11 Backend Web Service
   - type: web
     name: pulsedesk-backend
