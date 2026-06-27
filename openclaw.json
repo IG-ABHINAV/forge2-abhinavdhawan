@@ -1,0 +1,26 @@
+{
+  "_comment": "OpenClaw (coder) -- EastRouter config. Secrets REDACTED on purpose.",
+  "model": { "base_url": "https://api.eastrouter.com/v1", "api_key": "${EASTROUTER_API_KEY}", "model": "z-ai/glm-5.1" },
+  "channels": {
+    "slack": {
+      "enabled": true,
+      "appToken": { "source": "env", "id": "SLACK_APP_TOKEN" },
+      "botToken": { "source": "env", "id": "SLACK_BOT_TOKEN" },
+      "channels": ["#agent-coder", "#agent-log", "#ci-cd"]
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "openai/z-ai/glm-5.1"
+      },
+      "providers": {
+        "openai": {
+          "apiKey": "${EASTROUTER_API_KEY}",
+          "baseURL": "https://api.eastrouter.com/v1"
+        }
+      },
+      "workspace": "f:\\FORGE 2\\forge2-pulsedesk"
+    }
+  }
+}

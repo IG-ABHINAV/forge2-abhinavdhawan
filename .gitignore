@@ -4,4 +4,5 @@
 /frontend/.env
 /frontend/dist
 .DS_Store
+/scratch/
 # never commit real secrets / keys

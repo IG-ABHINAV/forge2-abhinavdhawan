@@ -1,60 +1,72 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import './index.css';
 
-axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+axios.defaults.baseURL = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl.replace(/\/$/, '')}/api`;
 
-// ── Toast ────────────────────────────────────────────────────────────────────
+const statuses = ['open', 'in_progress', 'resolved', 'closed'];
+const priorities = ['low', 'medium', 'high', 'urgent'];
+
+function pretty(value) {
+  return String(value || '').replace(/_/g, ' ');
+}
+
 function Toast({ msg, type, onDone }) {
-  useEffect(() => { const t = setTimeout(onDone, 3000); return () => clearTimeout(t); }, [onDone]);
-  const icon = type === 'success' ? '✅' : '❌';
-  return <div className={`toast ${type}`}>{icon} {msg}</div>;
+  useEffect(() => {
+    const timer = setTimeout(onDone, 2800);
+    return () => clearTimeout(timer);
+  }, [onDone]);
+
+  return <div className={`toast ${type}`}>{type === 'success' ? 'OK' : 'Error'}: {msg}</div>;
 }
 
-// ── Priority badge ────────────────────────────────────────────────────────────
 function PriorityBadge({ p }) {
-  const map = { urgent:'badge-urgent', high:'badge-high', medium:'badge-medium', low:'badge-low' };
-  return <span className={`badge ${map[p] || 'badge-low'}`}>{p}</span>;
+  const map = { urgent: 'badge-urgent', high: 'badge-high', medium: 'badge-medium', low: 'badge-low' };
+  return <span className={`badge ${map[p] || 'badge-low'}`}>{pretty(p)}</span>;
 }
 
-// ── Status badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ s }) {
-  const map = { open:'badge-open', in_progress:'badge-in_progress', resolved:'badge-resolved', closed:'badge-closed' };
-  return <span className={`badge ${map[s] || 'badge-low'}`}>{s?.replace('_',' ')}</span>;
+  const map = { open: 'badge-open', in_progress: 'badge-in_progress', resolved: 'badge-resolved', closed: 'badge-closed' };
+  return <span className={`badge ${map[s] || 'badge-low'}`}>{pretty(s)}</span>;
 }
 
-// ── Auth Page ─────────────────────────────────────────────────────────────────
 function AuthPage({ onLogin }) {
-  const [mode, setMode]     = useState('login');
-  const [email, setEmail]   = useState('');
-  const [pass, setPass]     = useState('');
-  const [name, setName]     = useState('');
-  const [org, setOrg]       = useState('');
-  const [error, setError]   = useState('');
+  const [mode, setMode] = useState('login');
+  const [email, setEmail] = useState('admin@acme.test');
+  const [pass, setPass] = useState('password');
+  const [name, setName] = useState('');
+  const [org, setOrg] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const submit = async (e) => {
-    e.preventDefault(); setError(''); setLoading(true);
+  const submit = async (event) => {
+    event.preventDefault();
+    setError('');
+    setLoading(true);
+
     try {
-      const url  = mode === 'login' ? '/v1/login' : '/v1/register';
+      const url = mode === 'login' ? '/v1/login' : '/v1/register';
       const body = mode === 'login'
         ? { email, password: pass }
         : { org_name: org, name, email, password: pass };
       const res = await axios.post(url, body);
-      onLogin(res.data.access_token);
+      onLogin(res.data.access_token, res.data.user);
     } catch (err) {
       setError(err.response?.data?.message || (mode === 'login' ? 'Login failed.' : 'Registration failed.'));
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="auth-bg">
       <div className="auth-card">
         <div className="logo-mark">
-          <div className="logo-icon">⚡</div>
+          <div className="logo-icon">P</div>
           <span className="logo-name">PulseDesk</span>
         </div>
-        <p className="auth-subtitle">Multi-tenant AI-powered support helpdesk</p>
+        <p className="auth-subtitle">Multi-tenant support desk for fast-moving teams</p>
 
         {error && <div className="error-box">{error}</div>}
 
@@ -63,24 +75,24 @@ function AuthPage({ onLogin }) {
             <>
               <div className="form-group">
                 <label className="form-label">Organization Name</label>
-                <input className="form-input" type="text" required placeholder="Acme Corp" value={org} onChange={e => setOrg(e.target.value)} />
+                <input className="form-input" required value={org} onChange={(e) => setOrg(e.target.value)} />
               </div>
               <div className="form-group">
                 <label className="form-label">Full Name</label>
-                <input className="form-input" type="text" required placeholder="John Doe" value={name} onChange={e => setName(e.target.value)} />
+                <input className="form-input" required value={name} onChange={(e) => setName(e.target.value)} />
               </div>
             </>
           )}
           <div className="form-group">
             <label className="form-label">Email Address</label>
-            <input className="form-input" type="email" required placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)} />
+            <input className="form-input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div className="form-group">
             <label className="form-label">Password</label>
-            <input className="form-input" type="password" required placeholder="••••••••" value={pass} onChange={e => setPass(e.target.value)} />
+            <input className="form-input" type="password" required value={pass} onChange={(e) => setPass(e.target.value)} />
           </div>
           <button className="btn-primary" type="submit" disabled={loading}>
-            {loading ? 'Please wait…' : mode === 'login' ? 'Sign In →' : 'Create Account →'}
+            {loading ? 'Please wait...' : mode === 'login' ? 'Sign In' : 'Create Account'}
           </button>
         </form>
 
@@ -89,98 +101,220 @@ function AuthPage({ onLogin }) {
             ? <>No account? <span onClick={() => { setMode('register'); setError(''); }}>Register organization</span></>
             : <>Have an account? <span onClick={() => { setMode('login'); setError(''); }}>Sign in</span></>}
         </div>
+        <div className="demo-note">Demo: admin@acme.test / password</div>
       </div>
     </div>
   );
 }
 
-// ── Create Ticket Form ────────────────────────────────────────────────────────
 function CreateTicketForm({ onCreated, onToast }) {
-  const [title, setTitle]     = useState('');
-  const [desc, setDesc]       = useState('');
+  const [title, setTitle] = useState('');
+  const [desc, setDesc] = useState('');
   const [priority, setPriority] = useState('medium');
   const [loading, setLoading] = useState(false);
 
-  const submit = async (e) => {
-    e.preventDefault(); setLoading(true);
+  const submit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
     try {
       await axios.post('/v1/tickets', { title, description: desc, priority });
-      setTitle(''); setDesc(''); setPriority('medium');
-      onToast('Ticket created successfully!', 'success');
+      setTitle('');
+      setDesc('');
+      setPriority('medium');
+      onToast('Ticket created successfully.', 'success');
       onCreated();
     } catch (err) {
       onToast(err.response?.data?.message || 'Failed to create ticket.', 'error');
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="card" style={{ animationDelay: '0.1s' }}>
+    <div className="card">
       <div className="card-header">
-        <span className="card-title">🎫 New Ticket</span>
+        <span className="card-title">New Ticket</span>
       </div>
       <form onSubmit={submit}>
         <div className="form-group">
           <label className="form-label">Subject</label>
-          <input className="form-input" type="text" required placeholder="Brief summary of the issue…" value={title} onChange={e => setTitle(e.target.value)} />
+          <input className="form-input" required placeholder="Brief summary of the issue" value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
         <div className="form-group">
           <label className="form-label">Description</label>
-          <textarea className="form-textarea" required placeholder="Describe the problem in detail…" value={desc} onChange={e => setDesc(e.target.value)} />
+          <textarea className="form-textarea" required placeholder="Describe the problem in detail" value={desc} onChange={(e) => setDesc(e.target.value)} />
         </div>
         <div className="form-group">
           <label className="form-label">Priority</label>
-          <select className="form-select" value={priority} onChange={e => setPriority(e.target.value)}>
-            <option value="low">🟢 Low</option>
-            <option value="medium">🔵 Medium</option>
-            <option value="high">🟡 High</option>
-            <option value="urgent">🔴 Urgent</option>
+          <select className="form-select" value={priority} onChange={(e) => setPriority(e.target.value)}>
+            {priorities.map((item) => <option key={item} value={item}>{pretty(item)}</option>)}
           </select>
         </div>
         <button className="btn-primary" type="submit" disabled={loading}>
-          {loading ? 'Submitting…' : 'Submit Ticket →'}
+          {loading ? 'Submitting...' : 'Submit Ticket'}
         </button>
       </form>
     </div>
   );
 }
 
-// ── Dashboard ─────────────────────────────────────────────────────────────────
-function Dashboard({ user, tickets, loading, onRefresh, onToast, onLogout }) {
-  const [filter, setFilter] = useState('all');
+function TicketDetail({ ticket, onUpdated, onToast }) {
+  const [comment, setComment] = useState('');
+  const [internal, setInternal] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const stats = {
-    total:      tickets.length,
-    open:       tickets.filter(t => t.status === 'open').length,
-    urgent:     tickets.filter(t => t.priority === 'urgent').length,
-    resolved:   tickets.filter(t => t.status === 'resolved').length,
+  if (!ticket) {
+    return (
+      <div className="card detail-empty">
+        <div className="empty-icon">PD</div>
+        <div className="empty-text">Select a ticket to inspect, update, and comment.</div>
+      </div>
+    );
+  }
+
+  const updateTicket = async (patch) => {
+    setSaving(true);
+    try {
+      const res = await axios.patch(`/v1/tickets/${ticket.id}`, patch);
+      onUpdated({ ...ticket, ...res.data });
+      onToast('Ticket updated.', 'success');
+    } catch (err) {
+      onToast(err.response?.data?.message || 'Could not update ticket.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const filtered = filter === 'all' ? tickets : tickets.filter(t =>
-    filter === 'open'     ? t.status === 'open' :
-    filter === 'urgent'   ? t.priority === 'urgent' :
-    filter === 'resolved' ? t.status === 'resolved' : true
-  );
+  const addComment = async (event) => {
+    event.preventDefault();
+    if (!comment.trim()) return;
+    setSaving(true);
+    try {
+      const res = await axios.post(`/v1/tickets/${ticket.id}/comments`, { body: comment, is_internal: internal });
+      onUpdated({ ...ticket, comments: [...(ticket.comments || []), res.data] });
+      setComment('');
+      setInternal(false);
+      onToast('Comment added.', 'success');
+    } catch (err) {
+      onToast(err.response?.data?.message || 'Could not add comment.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const initials = (user?.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
+  return (
+    <div className="card detail-card">
+      <div className="detail-head">
+        <div>
+          <div className="eyebrow">Ticket #{ticket.id}</div>
+          <h2>{ticket.title}</h2>
+          <p>{ticket.description}</p>
+        </div>
+        <div className="badges">
+          <PriorityBadge p={ticket.priority} />
+          <StatusBadge s={ticket.status} />
+        </div>
+      </div>
+
+      <div className="detail-grid">
+        <div className="form-group">
+          <label className="form-label">Status</label>
+          <select className="form-select" disabled={saving} value={ticket.status} onChange={(e) => updateTicket({ status: e.target.value })}>
+            {statuses.map((item) => <option key={item} value={item}>{pretty(item)}</option>)}
+          </select>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Priority</label>
+          <select className="form-select" disabled={saving} value={ticket.priority} onChange={(e) => updateTicket({ priority: e.target.value })}>
+            {priorities.map((item) => <option key={item} value={item}>{pretty(item)}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="meta-strip">
+        <span>Requester: {ticket.user?.name || 'Unknown'}</span>
+        <span>Assignee: {ticket.assignee?.name || 'Unassigned'}</span>
+        <span>Created: {new Date(ticket.created_at).toLocaleString()}</span>
+      </div>
+
+      <div className="comments">
+        <div className="card-title">Conversation</div>
+        {(ticket.comments || []).length === 0 ? (
+          <div className="empty-text small">No comments yet.</div>
+        ) : (
+          ticket.comments.map((item) => (
+            <div className="comment" key={item.id}>
+              <div className="comment-top">
+                <strong>{item.user?.name || 'User'}</strong>
+                {item.is_internal && <span>internal</span>}
+              </div>
+              <p>{item.body}</p>
+            </div>
+          ))
+        )}
+      </div>
+
+      <form onSubmit={addComment} className="comment-form">
+        <textarea className="form-textarea" placeholder="Write a reply or internal note" value={comment} onChange={(e) => setComment(e.target.value)} />
+        <label className="check-row">
+          <input type="checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)} />
+          Internal note
+        </label>
+        <button className="btn-primary" type="submit" disabled={saving || !comment.trim()}>Add Comment</button>
+      </form>
+    </div>
+  );
+}
+
+function Dashboard({ user, tickets, dashboard, selectedTicket, loading, onRefresh, onSelect, onUpdated, onToast, onLogout }) {
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+
+  const stats = dashboard || {
+    total_tickets: tickets.length,
+    by_status: {
+      open: tickets.filter((t) => t.status === 'open').length,
+      in_progress: tickets.filter((t) => t.status === 'in_progress').length,
+      resolved: tickets.filter((t) => t.status === 'resolved').length,
+      closed: tickets.filter((t) => t.status === 'closed').length,
+    },
+    by_priority: {
+      urgent: tickets.filter((t) => t.priority === 'urgent').length,
+    },
+    sla_breached: tickets.filter((t) => t.sla_breached).length,
+  };
+
+  const filtered = useMemo(() => {
+    return tickets.filter((ticket) => {
+      const matchesFilter =
+        filter === 'all' ||
+        ticket.status === filter ||
+        ticket.priority === filter ||
+        (filter === 'sla' && ticket.sla_breached);
+      const haystack = `${ticket.title} ${ticket.description} ${ticket.user?.name || ''}`.toLowerCase();
+      return matchesFilter && haystack.includes(search.toLowerCase());
+    });
+  }, [filter, search, tickets]);
+
+  const initials = (user?.name || 'U').split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 
   return (
     <div className="app-shell">
-      {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <div className="logo-icon" style={{width:32,height:32,fontSize:15,borderRadius:8}}>⚡</div>
+          <div className="logo-icon">P</div>
           <span className="logo-name">PulseDesk</span>
         </div>
 
-        <div className="nav-section" style={{marginTop:0}}>Main</div>
-        <button className="nav-item active"><span className="nav-icon">🎫</span> Tickets <span className="nav-badge">{stats.open}</span></button>
-        <button className="nav-item"><span className="nav-icon">📊</span> Dashboard</button>
-        <button className="nav-item"><span className="nav-icon">🤖</span> AI Agents</button>
+        <div className="nav-section">Main</div>
+        <button className="nav-item active"><span className="nav-icon">T</span> Tickets <span className="nav-badge">{stats.by_status?.open || 0}</span></button>
+        <button className="nav-item"><span className="nav-icon">D</span> Dashboard</button>
+        <button className="nav-item"><span className="nav-icon">A</span> AI Agents</button>
 
         <div className="divider" />
         <div className="nav-section">Workspace</div>
-        <button className="nav-item"><span className="nav-icon">📁</span> Knowledge Base</button>
-        <button className="nav-item"><span className="nav-icon">⚙️</span> Settings</button>
+        <button className="nav-item"><span className="nav-icon">K</span> Knowledge Base</button>
+        <button className="nav-item"><span className="nav-icon">S</span> Settings</button>
 
         <div className="sidebar-bottom">
           {user && (
@@ -190,162 +324,175 @@ function Dashboard({ user, tickets, loading, onRefresh, onToast, onLogout }) {
                 <div className="user-name">{user.name}</div>
                 <div className="user-role">{user.organization?.name}</div>
               </div>
-              <button className="btn-logout" onClick={onLogout} title="Sign out">↩</button>
+              <button className="btn-logout" onClick={onLogout} title="Sign out">Exit</button>
             </div>
           )}
         </div>
       </aside>
 
-      {/* Main */}
       <main className="main-content">
         <div className="topbar">
           <div>
             <div className="page-title">Ticket Queue</div>
-            <div className="page-subtitle">Manage and track support requests for {user?.organization?.name}</div>
+            <div className="page-subtitle">Manage support requests for {user?.organization?.name || 'your organization'}</div>
           </div>
+          <button className="btn-sm" onClick={onRefresh}>Refresh</button>
         </div>
 
-        {/* Stats */}
         <div className="stats-grid">
           {[
-            { label: 'Total Tickets', value: stats.total, cls: 'blue'  },
-            { label: 'Open',          value: stats.open,    cls: 'green' },
-            { label: 'Urgent',        value: stats.urgent,  cls: 'red'   },
-            { label: 'Resolved',      value: stats.resolved,cls: 'amber' },
-          ].map((s, i) => (
-            <div className="stat-card" key={s.label} style={{ animationDelay: `${i * 0.08}s` }}>
-              <div className="stat-label">{s.label}</div>
-              <div className={`stat-value ${s.cls}`}>{s.value}</div>
-              <div className="stat-change">across your organization</div>
+            { label: 'Total Tickets', value: stats.total_tickets, cls: 'blue' },
+            { label: 'Open', value: stats.by_status?.open || 0, cls: 'green' },
+            { label: 'Urgent', value: stats.by_priority?.urgent || 0, cls: 'red' },
+            { label: 'SLA Breached', value: stats.sla_breached || 0, cls: 'amber' },
+          ].map((item) => (
+            <div className="stat-card" key={item.label}>
+              <div className="stat-label">{item.label}</div>
+              <div className={`stat-value ${item.cls}`}>{item.value}</div>
+              <div className="stat-change">current workspace</div>
             </div>
           ))}
         </div>
 
-        {/* Panel */}
-        <div className="panel-grid">
-          {/* Ticket list */}
-          <div>
+        <div className="workspace-grid">
+          <section>
             <div className="filter-row">
-              {['all','open','urgent','resolved'].map(f => (
-                <button key={f} className={`btn-sm ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
-                  {f.charAt(0).toUpperCase() + f.slice(1)}
+              {['all', 'open', 'in_progress', 'urgent', 'resolved', 'sla'].map((item) => (
+                <button key={item} className={`btn-sm ${filter === item ? 'active' : ''}`} onClick={() => setFilter(item)}>
+                  {pretty(item)}
                 </button>
               ))}
-              <button className="btn-sm" onClick={onRefresh} style={{marginLeft:'auto'}}>↻ Refresh</button>
             </div>
+            <input className="form-input search-input" placeholder="Search tickets" value={search} onChange={(e) => setSearch(e.target.value)} />
 
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <div style={{ padding: '20px 24px 0' }}>
-                <div className="card-header" style={{ marginBottom: 0 }}>
-                  <span className="card-title">All Tickets</span>
-                  <span className="card-count">{filtered.length} showing</span>
-                </div>
+            <div className="card ticket-card">
+              <div className="card-header">
+                <span className="card-title">All Tickets</span>
+                <span className="card-count">{filtered.length} showing</span>
               </div>
-              <div style={{ padding: '16px 24px 24px' }}>
-                {loading ? (
-                  [1,2,3].map(i => <div key={i} className="skeleton skeleton-ticket" />)
-                ) : filtered.length === 0 ? (
-                  <div className="empty-state">
-                    <div className="empty-icon">🎫</div>
-                    <div className="empty-text">No tickets found.</div>
-                  </div>
-                ) : (
-                  <div className="ticket-list">
-                    {filtered.map(t => (
-                      <div className="ticket-item" key={t.id}>
-                        <div className="ticket-top">
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div className="ticket-title">{t.title}</div>
-                            <div className="ticket-meta">#{t.id} · {t.user?.name || 'Unknown'} · {new Date(t.created_at).toLocaleDateString()}</div>
-                          </div>
-                          <div className="badges">
-                            <PriorityBadge p={t.priority} />
-                            <StatusBadge s={t.status} />
-                          </div>
+              {loading ? (
+                [1, 2, 3].map((item) => <div key={item} className="skeleton skeleton-ticket" />)
+              ) : filtered.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-icon">PD</div>
+                  <div className="empty-text">No tickets found.</div>
+                </div>
+              ) : (
+                <div className="ticket-list">
+                  {filtered.map((ticket) => (
+                    <button className={`ticket-item ${selectedTicket?.id === ticket.id ? 'selected' : ''}`} key={ticket.id} onClick={() => onSelect(ticket)}>
+                      <div className="ticket-top">
+                        <div>
+                          <div className="ticket-title">{ticket.title}</div>
+                          <div className="ticket-meta">#{ticket.id} - {ticket.user?.name || 'Unknown'} - {new Date(ticket.created_at).toLocaleDateString()}</div>
                         </div>
-                        {t.description && <p className="ticket-desc">{t.description}</p>}
+                        <div className="badges">
+                          <PriorityBadge p={ticket.priority} />
+                          <StatusBadge s={ticket.status} />
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Create form */}
-          <div>
-            <CreateTicketForm onCreated={onRefresh} onToast={onToast} />
-
-            {/* Agent info card */}
-            <div className="card" style={{ marginTop: 16, animationDelay: '0.2s' }}>
-              <div className="card-title" style={{ marginBottom: 12, fontSize: 14 }}>🤖 Active Agents</div>
-              {[
-                { name: 'Hermes', role: 'Product Owner · Planning', model: 'moonshotai/kimi-k2.6', color: '#6366f1' },
-                { name: 'OpenClaw', role: 'Dev Agent · Coding', model: 'z-ai/glm-5.1', color: '#10b981' },
-              ].map(a => (
-                <div key={a.name} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0', borderBottom:'1px solid var(--border)' }}>
-                  <div style={{ width:32, height:32, background:a.color+'22', border:`1px solid ${a.color}44`, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>🤖</div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13, fontWeight:600 }}>{a.name}</div>
-                    <div style={{ fontSize:11, color:'var(--text-3)' }}>{a.role}</div>
-                  </div>
-                  <div style={{ fontSize:10, background:`${a.color}18`, color:a.color, padding:'2px 8px', borderRadius:99, border:`1px solid ${a.color}33`, whiteSpace:'nowrap' }}>
-                    online
-                  </div>
+                      <p className="ticket-desc">{ticket.description}</p>
+                    </button>
+                  ))}
                 </div>
-              ))}
-              <div style={{ fontSize:11, color:'var(--text-3)', marginTop:12, textAlign:'center' }}>
-                EastRouter · 3 models active
-              </div>
+              )}
             </div>
-          </div>
+          </section>
+
+          <section className="side-stack">
+            <CreateTicketForm onCreated={onRefresh} onToast={onToast} />
+            <TicketDetail ticket={selectedTicket} onUpdated={onUpdated} onToast={onToast} />
+          </section>
         </div>
       </main>
     </div>
   );
 }
 
-// ── Root App ──────────────────────────────────────────────────────────────────
 export default function App() {
-  const [token, setToken]     = useState(() => localStorage.getItem('pd_token') || '');
-  const [user, setUser]       = useState(null);
+  const [token, setToken] = useState(() => localStorage.getItem('pd_token') || '');
+  const [user, setUser] = useState(null);
   const [tickets, setTickets] = useState([]);
+  const [dashboard, setDashboard] = useState(null);
+  const [selectedTicketId, setSelectedTicketId] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [toast, setToast]     = useState(null);
-
-  if (token) axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
-  const showToast = useCallback((msg, type = 'success') => {
-    setToast({ msg, type }); 
-  }, []);
-
-  const fetchUser = useCallback(async () => {
-    try { const r = await axios.get('/v1/me'); setUser(r.data); }
-    catch { handleLogout(); }
-  }, []);
-
-  const fetchTickets = useCallback(async () => {
-    setLoading(true);
-    try { const r = await axios.get('/v1/tickets'); setTickets(r.data.data || []); }
-    catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, []);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
-    if (token) { fetchUser(); fetchTickets(); }
+    if (token) {
+      axios.defaults.headers.common.Authorization = `Bearer ${token}`;
+    } else {
+      delete axios.defaults.headers.common.Authorization;
+    }
   }, [token]);
 
-  const handleLogin = (t) => {
-    localStorage.setItem('pd_token', t);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${t}`;
-    setToken(t);
+  const selectedTicket = useMemo(
+    () => tickets.find((ticket) => ticket.id === selectedTicketId) || tickets[0] || null,
+    [selectedTicketId, tickets],
+  );
+
+  const showToast = useCallback((msg, type = 'success') => {
+    setToast({ msg, type });
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      if (token) await axios.post('/v1/logout');
+    } catch {
+      // Local logout should still complete when the token is stale.
+    }
+    localStorage.removeItem('pd_token');
+    setToken('');
+    setUser(null);
+    setTickets([]);
+    setDashboard(null);
+    setSelectedTicketId(null);
+  }, [token]);
+
+  const fetchUser = useCallback(async () => {
+    try {
+      const res = await axios.get('/v1/me');
+      setUser(res.data);
+    } catch {
+      handleLogout();
+    }
+  }, [handleLogout]);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [ticketRes, dashboardRes] = await Promise.all([
+        axios.get('/v1/tickets'),
+        axios.get('/v1/dashboard'),
+      ]);
+      const nextTickets = ticketRes.data.data || [];
+      setTickets(nextTickets);
+      setDashboard(dashboardRes.data);
+      setSelectedTicketId((current) => current || nextTickets[0]?.id || null);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not load workspace.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    if (token) {
+      fetchUser();
+      fetchData();
+    }
+  }, [fetchData, fetchUser, token]);
+
+  const handleLogin = (nextToken, nextUser) => {
+    localStorage.setItem('pd_token', nextToken);
+    setToken(nextToken);
+    if (nextUser) setUser(nextUser);
   };
 
-  const handleLogout = () => {
-    try { axios.post('/v1/logout'); } catch {}
-    localStorage.removeItem('pd_token');
-    delete axios.defaults.headers.common['Authorization'];
-    setToken(''); setUser(null); setTickets([]);
+  const handleTicketUpdated = (updatedTicket) => {
+    setTickets((current) => current.map((ticket) => (ticket.id === updatedTicket.id ? updatedTicket : ticket)));
+    setSelectedTicketId(updatedTicket.id);
+    fetchData();
   };
 
   if (!token) return <AuthPage onLogin={handleLogin} />;
@@ -355,8 +502,12 @@ export default function App() {
       <Dashboard
         user={user}
         tickets={tickets}
+        dashboard={dashboard}
+        selectedTicket={selectedTicket}
         loading={loading}
-        onRefresh={fetchTickets}
+        onRefresh={fetchData}
+        onSelect={(ticket) => setSelectedTicketId(ticket.id)}
+        onUpdated={handleTicketUpdated}
         onToast={showToast}
         onLogout={handleLogout}
       />
